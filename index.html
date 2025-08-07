@@ -837,13 +837,44 @@
         return !isDetailedDistrict;
       });
       
+      // Special handling for Austin area - prioritize Austin over Houston
+      // Check if we're in the Austin area (roughly 30.2672°N, -97.7431°W ± 0.25 degrees)
+      const isAustinArea = lat >= 30.1 && lat <= 30.6 && lon >= -98.0 && lon <= -97.4;
+      if (isAustinArea) {
+        console.log('Detected Austin area, prioritizing Austin over Houston');
+        // Remove Houston from the list if it exists
+        const filteredForAustin = filteredCities.filter(cityObj => 
+          !cityObj.name.toLowerCase().includes('houston')
+        );
+        if (filteredForAustin.length > 0) {
+          console.log('Filtered out Houston, remaining cities:', filteredForAustin.map(c => c.name));
+          // Use the filtered list instead
+          filteredCities.length = 0;
+          filteredCities.push(...filteredForAustin);
+        }
+      }
+      
       // Choose the most specific city name (lowest priority number = most specific)
+      let bestCity = null; // Declare bestCity at function scope
+      
       if (filteredCities.length > 0) {
-        // Sort by priority (lower number = higher priority = more specific)
-        filteredCities.sort((a, b) => a.priority - b.priority);
-        const bestCity = filteredCities[0];
-        city = bestCity.name;
-        console.log('Selected most specific Nominatim city:', city, 'from type:', bestCity.type, 'priority:', bestCity.priority);
+        // Special handling for Austin - if Austin is in the list, prioritize it
+        const austinCity = filteredCities.find(cityObj => 
+          cityObj.name.toLowerCase().includes('austin')
+        );
+        
+        if (austinCity) {
+          console.log('Found Austin in potential cities, prioritizing it');
+          city = austinCity.name;
+          bestCity = austinCity; // Set bestCity for later use
+          console.log('Selected Austin:', city, 'from type:', austinCity.type, 'priority:', austinCity.priority);
+        } else {
+          // Sort by priority (lower number = higher priority = more specific)
+          filteredCities.sort((a, b) => a.priority - b.priority);
+          bestCity = filteredCities[0];
+          city = bestCity.name;
+          console.log('Selected most specific Nominatim city:', city, 'from type:', bestCity.type, 'priority:', bestCity.priority);
+        }
         
         // Don't use state as city if we found a real city
         if (bestCity.type === 'state_as_city') {
@@ -857,7 +888,7 @@
       } else if (potentialCities.length > 0) {
         // Use unfiltered if filtered list is empty
         potentialCities.sort((a, b) => a.priority - b.priority);
-        const bestCity = potentialCities[0];
+        bestCity = potentialCities[0];
         city = bestCity.name.replace(/^Capital City of /, '');
         console.log('Selected Nominatim city (unfiltered):', city, 'from type:', bestCity.type);
         
